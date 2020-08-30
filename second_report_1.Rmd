@@ -2,7 +2,7 @@
 title: Interim report - Effects of ad hoc energy newbuild award announcements on share
   prices
 author: "Christian Groves eMA BEL Zeppelin University"
-date: "10/4/2020"
+date: "29/4/2020"
 output:
   html_document:
     df_print: paged
@@ -15,6 +15,8 @@ always_allow_html: yes
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE, cache = TRUE, message = FALSE, warning = FALSE)
 ```
+
+# Overview
 
 ## Expected effects of high value EPC awards on share prices
 
@@ -34,6 +36,13 @@ At the moment, the market model adjustment is used, since this appears to be the
 Daily stock returns are used since monthly would not show any effect and intraday stock returns would be too volatile. Furthermore only daily stock returns are both archived over several years and freely available.
 
 Ad hoc announcements can only be sourced directly from the company websites, and not from journals or newspapers, since the announcements there are often delayed by several days and contain different information to that released on the company website.
+
+Background: 
+
+A return autocorelation is expected after the event, with a momentum phase, resulting in a positive price increase for a positive private signal, and a negative price increase for a negative price signal:
+
+![expected return autocorrelation](return_autocorrelation.png)
+
 
 # Method
 
