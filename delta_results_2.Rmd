@@ -1,0 +1,55 @@
+---
+title: "Delta files"
+author: "Christian Groves eMA BEL"
+date: "19/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+```
+
+R script to compare the results from the two scripts:
+
+```{r datadiff}
+# Groves 2020-07-19 File to extract difference in data between the thesis and the changed results
+
+rm(list = ls())
+
+setwd("C:/Users/Christian/OneDrive/Rstudio/final_thesis")
+
+load(file="workspace_image.RData")
+
+regression_watt_old <- regression_watt
+regression_watt_old$type = regression_watt_old$name
+
+regression3_old <- regression3 %>% mutate_at(3, round, 9)
+regression3_old$type <- regression3_old$name
+
+setwd("C:/Users/Christian/OneDrive/Rstudio/presentation_thesis")
+
+save(regression_watt_old, regression3_old, file = "files_tocheck.rda")
+
+rm(list = ls())
+
+load(file="workspace_thesis.RData")
+
+load(file="files_tocheck.rda")
+
+regression_watt_new <- regression_watt
+regression_watt_new$type = regression_watt_new$name
+
+regression3_new <- regression3 %>% mutate_at(3, round, 9)
+regression3_new$type = regression3_new$name
+
+regression_watt_diff <- setdiff(regression_watt_old, regression_watt_new)
+regression3_diff <-setdiff(regression3_old, regression3_new)
+
+print(regression_watt_diff)
+print(regression3_diff)
+
+save(regression_watt_diff, regression3_diff, file = "delta_results.rda")
+
+```
+

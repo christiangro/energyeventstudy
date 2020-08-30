@@ -9,7 +9,7 @@ subtitle: |
   
   .
   
-  Master thesis
+  Master thesis (edited for presentation)
   
   .
   
@@ -34,14 +34,15 @@ subtitle: |
   Author:
 author:
 date: |
-  Submission date 17th June, 2020
+  Submission date 17th June, 2020 - edited 26th July, 2020
   \newpage
 output:
   bookdown::pdf_document2:
     number_sections: yes
 fontsize: 12pt
 geometry: left = 4cm, right = 2cm, top = 3cm, bottom = 2.5cm
-header-includes: \usepackage[document]{ragged2e}
+header-includes:
+- \usepackage[document]{ragged2e}
 linestretch: 1.5
 editor_options:
   chunk_output_type: console
@@ -425,7 +426,7 @@ est_indices_911 <- get_prices_from_tickers(index_symbol_911, start = min_date_91
 # melt the indices data with fortify.zoo, so that only three columns are present:
 est_market_data_911 <- fortify.zoo(est_indices_911, names = c("Series", "Index", "Value"), melt = TRUE) %>% .[c("Index", "Series", "Value")]
 # save results pulled from Yahoo! Finance as an R data file:
-save(est_market_data_911, file= "est_market_data_911.rda")
+save(est_market_data_911, file= "z_est_market_data_911.rda")
 # write the information from Yahoo! Finance as the .csv file required:
 # securities data:
 write.table(est_firm_data_911, file="02_FirmData_911.csv", row.names=FALSE, col.names=FALSE, sep=";", quote = FALSE)
@@ -1256,7 +1257,8 @@ knitr::kable(
   digits = 3,
   booktabs = TRUE,
   caption = "Linear regression table of abnormal return with observation window") %>%
-kableExtra::kable_styling(latex_options = "hold_position")
+kableExtra::kable_styling(latex_options = "hold_position") %>%
+add_footnote("source is own computation", notation = "symbol")
 ```
 
 Analysis of Variance (ANOVA) shows the same information as the linear regression in Table \@ref(tab:lm-911) but in a different way, with the fit rather than the difference used as the indicated measure. ANOVA, as shown in Table \@ref(tab:anova-911), also shows the number of observations, which is an important factor in determining the *p value*.
@@ -1278,7 +1280,7 @@ fit <- fit_res %>%
   # group by regression name
   group_by(Event.ID) %>%
   # create ANOVA table
-  do(tidy(lm(value ~ variable, data = .))) %>%
+  do(tidy(anova(lm(value ~ variable, data = .)))) %>%
   # replace NA with -
   na.fill("-")
 # write table
@@ -1287,7 +1289,8 @@ knitr::kable(
   digits = 3,
   booktabs = TRUE,
   caption = "ANOVA of abnormal return with observation window") %>%
-kableExtra::kable_styling(latex_options = "hold_position")
+kableExtra::kable_styling(latex_options = "hold_position") %>%
+add_footnote("source is own computation", notation = "symbol")
 ```
 
 The tabulation of the linear regression as shown in Table \@ref(tab:lm-911) will be used for the results, since this better represents both the information shown in the regression, such as in \@ref(fig:plot-911-regression), and the a summary of the same information used to define the regression line therein. ANOVA will not be used for assessing box plots to avoid describing different methods.
@@ -1504,46 +1507,9 @@ currency_symbol <- levels(factor(symbol_mcap$currency))
 yahoo_symbol <- c(event_symbol,index_symbol,currency_symbol)
 ```
 
-```{r load-data, eval=FALSE, include=FALSE}
-# # Chunk to load data needed for the results
-# # name source file (File must be in same directory)
-# source_file <- "z_event_dates.xlsx"
-# # open source file (Important: Date format must be YYYY-MM-DD, 
-# # column 1 must be "name", column two "when", all in lower case!)
-# sheets <- getwd() %>% file.path(source_file) %>%  loadWorkbook() %>% getSheets
-# #loads only first sheet from wb 
-# {
-#   sheet_events<-sheets[[1]]
-#   #loads data from sheet 1 into event_dates
-#   event_dates<-readColumns(sheet = sheet_events, 1, 2, 1, colClasses =c("character","Date")) %>% arrange(when, name)
-#   # loads longer data
-#     event_dates_long <- readColumns(sheet = sheet_events, 1, 16, 1, colClasses =c(
-#     "character", "Date", "character", "character", "character", "character", "character", "character", "numeric", "numeric", "numeric", "numeric", "character", "character", "character" , "character"))
-#   #event_dates<-readColumns(sheet = sheet, 1, 3, 1, colClasses =c("character","Date","character"))
-#   #converts first column from class Factor to class Character (no reason why it is converted to factor) with the package dplyr)
-#   event_dates <- event_dates %>% mutate_if(is.factor, as.character) %>% arrange(when, name)
-#   # loads only the second sheet from wb for calculating market capitalization
-#   sheet_mcap <- sheets[[2]]
-#   # loads data from sheet 1 into event_dates
-#   symbol_mcap <- readColumns(sheet = sheet_mcap, 1, 6, 1, colClasses =c(
-#     "character","Date","character","character","numeric","character"))
-#   # converts first column from class Factor to class Character 
-#   # (no reason why it is converted to factor) with the package dplyr)
-#   symbol_mcap <- symbol_mcap %>% mutate_if(is.factor, as.character)
-# }
-# # list all of the stock market symbols, so they can be called from Yahoo!Finance. 
-# # Please check first that the symbols are correct!
-# event_symbol <- levels(factor(symbol_mcap$name))
-# # list all of the index symbols, so they can be called from Yahoo!Finance. 
-# # Please check first that the symbols are correct!
-# index_symbol <- levels(factor(symbol_mcap$index))
-# # Add curency symbols to calculate MCAP of foreign companies:
-# currency_symbol <- levels(factor(symbol_mcap$currency))
-# # Combine all the symbols to call the symbols from Yahoo! Finance at once:
-# yahoo_symbol <- c(event_symbol,index_symbol,currency_symbol)
-```
 
 All of the ad-hoc announcements for power plant contracts were looked at for several different companies on their websites. A list of the collected data can be found in \@ref(tab:observations) in the appendix. Since only a limited number of articles were posted, part deliveries of the contracts were also included. Hence, the announcements show all contracts available for power generation, as listed in Table \@ref(tab:listofdata):
+
 
 ```{r listofdata}
 
@@ -1553,7 +1519,7 @@ data_summary_1 <- z_event_dates %>%
     dplyr::rename(company = nickname)
 
 data_summary_2 <- data_summary_1
-data_summary_2$company <- "All (112)*"
+data_summary_2$company <- "All (110)*"
 data_summary_2$complete <- "-"
 data_summary_2$name <- "-"
 
@@ -1573,7 +1539,7 @@ knitr::kable(
     booktabs = TRUE,
     caption = "Summary of collected data") %>%
   kableExtra::kable_styling(latex_options = "hold_position") %>%
-  add_footnote("Excluded anomaly", notation = "symbol")
+  add_footnote("Excluded anomaly, missing values", notation = "symbol")
 ```
 
 It is important to note here that the statistical significance depends partly on the group size. As can be seen in Table \@ref(tab:listofdata), whilst GE, Mitsubishi and Siemens have enough observations to have a reasonable chance of being statistically significant, Marubeni and especially Ansaldo, Samsung and Vpower have a very low number of observations, leading to very high variability and very low statistical significance.
@@ -1641,7 +1607,7 @@ est_indices <- get_prices_from_tickers(index_symbol, start = min_date , end = ma
 # melt the indices data with fortify.zoo, so that only three columns are present:
 est_market_data <- fortify.zoo(est_indices, names = c("Series", "Index", "Value"), melt = TRUE) %>% .[c("Index", "Series", "Value")]
 # save results pulled from Yahoo! Finance as an R data file:
-save(est_market_data, file= "est_market_data.rda")
+save(est_market_data, file= "z_est_market_data.rda")
 ```
 
 ## Cumulative Abnormal Return (CAR)
@@ -1732,7 +1698,7 @@ ar_results$Event.ID <- est_event_dates$when
 # Select raw abnormal returns
 est_sum_ar <- ar_results %>% 
 select("Event.ID":"AR.10.") %>%
-data.table::setnames(c("Event.ID", as.character(new_days_911)))
+data.table::setnames(c("Event.ID", as.character(new_days)))
 # cumulate results and convert from absolute to %
 est_sum_ar[, 2:ncol(est_sum_ar)] <- 100*t(apply(est_sum_ar[, -1], 1, function(x)cumsum(x)))
 # save results
@@ -1843,7 +1809,7 @@ print(ggplot(melted_results2, aes(x=value, colour=variable))
       +xlab("% Cumulative Abnormal Return (CAR)"))
 ```
 
-For the days immediately after the events, from day 0 to day 3, in Figure \@ref(fig:plot-distribution-results), the distribution by day shows that the results are not greatly skewed, but there are several outliers on the positive side. As is seen in the ridge plot in Figure \@ref(fig:plot-est-ridges), the day 2 is slightly negatively skewed. This negative skew is not present on any of the other days. Additionally, kurtosis decreases as the results become more distributed on the days succeeding the event. This can be seen as the density moves outwards from the centreline as the days progress. There is not perfect symmetry between the positive and negative sides of the distribution, however this is most likely just due to the small sample size of 112 announcements. It may have been advantageous to see how the regressions manifested at different days, based on the different forms the distribution takes for different days. However, the program does not allow for alternate selection of a different day for the regressions, which in this case is taken to be two days after the event.
+For the days immediately after the events, from day 0 to day 3, in Figure \@ref(fig:plot-distribution-results), the distribution by day shows that the results are not greatly skewed, but there are several outliers on the positive side. As is seen in the ridge plot in Figure \@ref(fig:plot-est-ridges), the day 2 is slightly negatively skewed. This negative skew is not present on any of the other days. Additionally, kurtosis decreases as the results become more distributed on the days succeeding the event. This can be seen as the density moves outwards from the centreline as the days progress. There is not perfect symmetry between the positive and negative sides of the distribution, however this is most likely just due to the small sample size of 110 announcements. It may have been advantageous to see how the regressions manifested at different days, based on the different forms the distribution takes for different days. However, the program does not allow for alternate selection of a different day for the regressions, which in this case is taken to be two days after the event.
 
 \pagebreak
 
@@ -2035,14 +2001,13 @@ regression <- cbind(mcap_data, event_data)
 regression2 <- regression %>%
   filter(when != "2020-02-19") %>%
   mutate(type = dplyr::recode(type,
-                                "GasTurbine" = "Turbine (86)*",
+                                "GasTurbine" = "Turbine (85)*",
                                 "Coal" = "Coal (8)",
                                 "WasteEnergy" = "Waste (3)",
                                 "Solar" = "Solar (3)",
                                 "Energy" = "Energy (1)*",
                                 "CombEngine" = "Engine (3)",
                                 "Geothermal" = "Geotherm (2)",
-                                "LNGT" = "LNGT (1)",
                                 "Nuclear" = "Nuclear (0)*",
                                 "Biomass" = "Biomass (1)"))
 
@@ -2059,6 +2024,10 @@ print(ggplot(regression_watt, aes(x = power_used, y = abnormal_returns))
       + scale_x_log10())
 ```
 
+```{r count-group-mcap, eval=FALSE, include=FALSE}
+regression2 %>% type.convert() %>% group_by(type) %>% drop_na(watt_mcap) %>% dplyr::summarise(count = n())
+```
+
 Thereby, larger contract orders would be associated with higher security price increases. However, few of the announcements describe the contract value, rather the power produced of the object to be built, repaired or augmented. This power is of a certain magnitude, but is not necessarily related to the contract award price. To prevent subjective evaluation of the contract award announcements, the power mentioned was noted as the scalar for the variable, irrespective if it was to, for example, construct a turnkey power plant for just to augment a small part of the total contract. Observing Figure \@ref(fig:plot-watt-regression), combustion engines show a strong positive gradient between abnormal returns and Megawatt mentioned in the announcement, however only 3 results were available in this category. Turbines and Coal show positive gradients for this relationship. Solar shows a negative relationship, again without significance due to the small group size of 3. Note the logarithmic horizontal axis of Figure \@ref(fig:plot-watt-regression).
 
 \pagebreak
@@ -2071,7 +2040,7 @@ fit_res <- regression_watt  %>%
 # assign results to the summary data
 fit_all <- fit_res
 # rename to all
-fit_all$type <- "All (108)*"
+fit_all$type <- "All (106)*"
 # calculate statistics
 fit <- fit_res %>%
   # add summary data
@@ -2141,14 +2110,14 @@ fit_res <- regression3 %>%
 # assign results to the summary data
 fit_all <- fit_res
 # rename to all
-fit_all$type <- "All (108)*"
+fit_all$type <- "All (106)*"
 # calculate statistics
 fit <- fit_res %>%
   # add summary data
   bind_rows(fit_all) %>%
   # group by regression name
   group_by(type) %>%
-  # create ANOVA table
+  # create linear regression summary table
   do(tidy(lm(abnormal_returns ~ slope, data = .))) %>%
   # replace NA with -
   na.fill("-") %>%
@@ -2180,14 +2149,13 @@ historical_res <- z_event_dates  %>%
   select(nickname, type, when, "2") %>% 
   data.table::setnames(c("company", "type", "when", "abnormal_return")) %>%
     mutate(type = dplyr::recode(type,
-                                "GasTurbine" = "Turbine (87)*",
+                                "GasTurbine" = "Turbine (86)*",
                                 "Coal" = "Coal (8)",
                                 "WasteEnergy" = "Waste (3)",
                                 "Solar" = "Solar (3)",
                                 "Energy" = "Energy (3)",
                                 "CombEngine" = "Engine (3)",
                                 "Geothermal" = "Geotherm (2)",
-                                "LNGT" = "LNGT (1)",
                                 "Nuclear" = "Nuclear (1)",
                                 "Biomass" = "Biomass (1)"))
 
@@ -2199,7 +2167,11 @@ historical_res <- z_event_dates  %>%
         + theme(axis.text.x = element_text(angle = 90, hjust = 1)))
 ```
 
-Figure \@ref(fig:plot-generation) shows that the largest group by far is the gas turbine type, which also shows a fairly normal distribution for abnormal returns. This group also contains announcements from many companies, and the largest outliers of +13% and -13%. excluding the anomaly from Samsung C&T. The next largest group, of the coal energy generation type, shows only results from the company Mitsubishi. This group shows a skew towards negative results. The other groups are too small to be meaningful. Interesting is that the 2 announcements from Vpower are associated with high abnormal returns of 7%. Due to the single announcements, no conclusions can be drawn that the single announcement of an LNG Terminal (LNGT) by Samsung C&T can be associated with the strong positive abnormal return of 5% or the single announcement of a nuclear project by GE can be associated with the strong negative abnormal return of -7%.
+```{r count-group-historical-res, eval=FALSE, include=FALSE}
+historical_res %>% group_by(type) %>% dplyr::summarise(count = n())
+```
+
+Figure \@ref(fig:plot-generation) shows that the largest group by far is the gas turbine type, which also shows a fairly normal distribution for abnormal returns. This group also contains announcements from many companies, and the largest outliers of +13% and -13%. excluding the anomaly from Samsung C&T. The next largest group, of the coal energy generation type, shows only results from the company Mitsubishi. This group shows a skew towards negative results. The other groups are too small to be meaningful. Interesting is that the 2 announcements from Vpower are associated with high abnormal returns of 7%. The single announcement of a nuclear project by GE can be associated with the strong negative abnormal return of -7%.
 
 \pagebreak 
 
@@ -2240,7 +2212,7 @@ fit_res <- historical_res %>%
 # assign results to the summary data
 fit_all <- fit_res
 # rename to all
-fit_all$company <- "All (112)*"
+fit_all$company <- "All (110)*"
 # calculate statistics
 fit <- fit_res %>%
   # add summary data
@@ -2261,7 +2233,7 @@ knitr::kable(
   booktabs = TRUE,
   caption = "Historical returns linear regression summary") %>%
 kableExtra::kable_styling(latex_options = "hold_position") %>%
-  add_footnote("Excluded anomaly", notation = "symbol")
+  add_footnote("Excluded anomaly, missing values", notation = "symbol")
 ```
 
 With *p-values* of 11-12%, Siemens shows a possible trend for increasing abnormal returns of 1% a year and positive abnormal returns from 2019 onwards in Table \@ref(tab:fit-historical) , suggesting that Siemens publishing announcements on their website show an ever more positive effect. If this was shown for all announcements, it could indicate that shares trading is ever more based on automated web scraping for web announcements as triggers for purchasing shares. However, there is no general trend which is probable for other securities, making this reasoning unlikely. Although Marubeni also shows a weak trend, Mitsubishi, another large company, shows none whatsoever. The large spread, as already seen in Figure \@ref(fig:plot-est-ridges) for day 2, leads to the large *p-value* approaching 1 for all of the results combined. This large spread is also present for Mitsubishi and GE. Ansaldo Energia, Samsung and Vpower have too few results to provide any useful indication. Both in the case of Mitsubishi and all the companies considered as a whole,  there does not seem to be any indication of a relationship due to the relatively large group size, long elapsed period of observed announcements, and weak *p-value*.
@@ -2348,7 +2320,7 @@ fit_res <- regression_period_3 %>%
 # assign results to the summary data
 fit_all <- fit_res
 # rename to all
-fit_all$company <- "All (112)*"
+fit_all$company <- "All (110)*"
 # calculate statistics
 fit <- fit_res %>%
   # add summary data
@@ -2369,7 +2341,7 @@ knitr::kable(
   booktabs = TRUE,
   caption = "Mean period linear regression summary") %>%
 kableExtra::kable_styling(latex_options = "hold_position") %>%
-  add_footnote("Excluded anomaly", notation = "symbol")
+  add_footnote("Excluded anomaly, missing values", notation = "symbol")
 ```
 
 Table \@ref(tab:fit-mean-period-regression) shows Siemen's intercept for declining abnormal returns by increasing mean period in weeks, with a positive return for announcements on any of all company websites more often than every week, and a negative return for less often than every two weeks as shown in Figure \@ref(fig:plot-period-regression), is the only trend which approaches any significance. This has a corresponding *p-value* of 0.12. The slope of Siemen's trend could be worth further investigation with a *p-value* of 0.23. Even though Samsung shows a very steep slope, the small group size of 3 detracts from the significance. Furthermore, it must be considered that the anomaly from Samsung of -35% abnormal return would exert a massive influence on the summary statistic. The intercept of approximately two weeks between any announcement on any of the websites for General Electric as shown in Figure \@ref(fig:plot-period-regression) with a *p-value* of 0.22 would also merit further investigation. With a very high *p-value* of 0.8, there is no general trend for either an intercept or a slope across all companies.
@@ -2601,7 +2573,7 @@ The results from web scraping announcements of the company website in Figure \@r
     booktabs = TRUE,
     caption = "Overview of clustering occurances") %>%
 kableExtra::kable_styling(latex_options = "hold_position") %>%
-  add_footnote("Excluded anomaly", notation = "symbol")
+  add_footnote("Excluded anomaly, missing values", notation = "symbol")
 ```
 
 \pagebreak
@@ -2624,7 +2596,7 @@ kableExtra::kable_styling(latex_options = "hold_position") %>%
                       method = "lm",
                       se = FALSE)
         + geom_point(aes(color = company, group = company))
-        + labs(x = "Size of cluster per event", y = "Abnormal returns", caption = "source is own computation * Excluded anomaly"))
+        + labs(x = "Size of cluster per event", y = "Abnormal returns", caption = "source is own computation * Excluded anomaly, missing value"))
 ```
 
 In Figure \@ref(fig:plot-clustering-regression), Mitsubishi is the only company which displays the expected attribute of a declining positive abnormal return with an increasing size of cluster per event, otherwise given as an increasing number of announcements by the same company on their website within the event window. Siemens shows a trend of an increasing abnormal return with size of cluster, possibly suggesting that the company tends to release announcements in relation to their momentary success. This could cause a correlation with an increase in share price compared to the estimation period. General Electric follows a similar tendency to Mitsubishi, with a trend for negative abnormal returns to occur for increasing cluster sizes. This could be caused by a strategy to release more announcements when improved investor communications is deemed necessary to prop up the share price.
@@ -2639,14 +2611,14 @@ fit_res <- regression_cluster %>%
 # assign results to the summary data
 fit_all <- fit_res
 # rename to all
-fit_all$company <- "All (112)*"
+fit_all$company <- "All (110)*"
 # calculate statistics
 fit <- fit_res %>%
   # add summary data
   bind_rows(fit_all) %>%
   # group by regression company
   group_by(company) %>%
-  # create ANOVA table
+  # create lm table
   do(tidy(lm(abnormal_returns ~ slope, data = .))) %>%
   # replace NA with -
   na.fill("-") %>%
@@ -2701,11 +2673,15 @@ world_results_list <- world_results %>%
   select(continent, n_events, gdp_md_est, pop_est, abnormal_returns) %>%
     mutate(continent = dplyr::recode(continent,
                                 "Africa" = "Africa (6)",
-                                "Asia" = "Asia (70)*",
+                                "Asia" = "Asia (68)*",
                                 "Europe" = "Europe (12)",
                                 "North America" = "North America (19)",
                                 "Oceania" = "Oceania (1)",
                                 "South America" = "South America (4)"))
+```
+
+```{r group-tally-continent, eval=FALSE, include=FALSE}
+world_results_list %>% group_by(continent) %>% tally(n_events)
 ```
 
 ```{r plot-world-map-returns, fig.cap="Abnormal returns by country", fig.height=4}
@@ -2727,7 +2703,7 @@ world_gdp_per_cap <- world_results_list %>%
   # function to list clustering
 fit_all <- world_gdp_per_cap
 
-fit_all$continent <- ".All (112)*"
+fit_all$continent <- ".All (110)*"
 # calculate statistics
 fit <- world_gdp_per_cap %>%
   # add summary data
@@ -2785,14 +2761,14 @@ fit_res <- world_gdp_per_cap %>%
 # assign results to the summary data
 fit_all <- fit_res
 # rename to all
-fit_all$continent <- ".All (112)*"
+fit_all$continent <- ".All (110)*"
 # calculate statistics
 fit <- fit_res %>%
   # add summary data
   bind_rows(fit_all) %>%
   # group by regression name
   group_by(continent) %>%
-  # create ANOVA table
+  # create lm table
   do(tidy(lm(abnormal_returns ~ slope, data = .))) %>%
   # shorten numbers to account for long continent names
   mutate_if(is.numeric, format, digits=4,nsmall = 0) %>%
@@ -2974,6 +2950,6 @@ Friedrichshafen, 17.06.2020
 Christian Groves
 
 ```{r backup}
-save.image(file="workspace_image.RData")
+save.image(file="workspace_thesis.RData")
 ```
 
