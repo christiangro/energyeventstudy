@@ -1,0 +1,336 @@
+
+---
+title: "Third report"
+author: "Christian Groves"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+bibliography: references.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, message = FALSE, warning = FALSE)
+#definition of operator language for R: https://cran.r-project.org/doc/manuals/r-release/R-lang.pdf
+#Detailed explanation of the Tilde: https://stackoverflow.com/questions/8055508/in-r-formulas-why-do-i-have-to-use-the-i-function-on-power-terms-like-y-i/8055683#8055683
+#
+#Sets the working directory for this script
+setwd(getSrcDirectory(function(x) {x}))
+#Returns the working directory of this script
+work_dir <- getwd()
+# package for renaming columns in a data.frame:
+library(data.table)
+#package needed to manipulate classes for the data.frame with mutate()
+library(dplyr)
+# package to draw nice plots
+library(ggplot2)
+#package for single event studies with many methods (not currently used)
+library(estudy2)
+#package for analysis of event studies: https://rdrr.io/cran/eventstudies/f/inst/doc/eventstudies.pdf
+library(eventstudies)
+#package for analysis of event studies: https://rdrr.io/cran/eventstudies/f/inst/doc/eventstudies.pdf
+library(eventstudies)
+#package for executing pipes
+library(magrittr)
+#package to manipulate single values in a data.frame
+library(plyr)
+#library to perform rowwise operations:
+library(purrr)
+#package for adding financial indicators (not currently used)
+#library(TTR)
+#package for loading financial data from Yahoo! finance: https://cran.r-project.org/web/packages/quantmod/quantmod.pdf
+library(quantmod)
+# package to melt and cast data
+library(reshape2)
+#package for displaying variable chart data app: https://shiny.rstudio.com/tutorial/written-tutorial/lesson6/
+library(shiny)
+#package for everything interesting
+library(tidyverse)
+#package for reading and writing excel files: https://cran.r-project.org/web/packages/xlsx/xlsx.pdf
+library(xlsx)
+#package for non-sequential time series: https://cran.r-project.org/web/packages/zoo/zoo.pdf
+library(zoo)
+#in xlsx package loads workbook with event dates 
+```
+
+```{r load_data}
+# name source file (File must be in same directory)
+source_file <- "event_dates.xlsx"
+# open source file (Important: Date format must be YYYY-MM-DD, 
+# column 1 must be "name", column two "when", all in lower case!)
+sheets <- getwd() %>% file.path(source_file) %>%  loadWorkbook() %>% getSheets
+#loads only first sheet from wb 
+{
+  sheet<-sheets[[1]]
+  #loads data from sheet 1 into event_dates
+  event_dates<-readColumns(sheet = sheet, 1, 2, 1, colClasses =c("character","Date"))
+  #event_dates<-readColumns(sheet = sheet, 1, 3, 1, colClasses =c("character","Date","character"))
+  #converts first column from class Factor to class Character (no reason why it is converted to factor) with the package dplyr)
+  event_dates <- event_dates %>% mutate_if(is.factor, as.character)
+  # loads only the second sheet from wb for calculating market capitalization
+  sheet_mcap <- sheets[[2]]
+  # loads data from sheet 1 into event_dates
+  symbol_mcap <- readColumns(sheet = sheet_mcap, 1, 6, 1, colClasses =c(
+    "character","Date","character","character","numeric","character"))
+  # converts first column from class Factor to class Character 
+  # (no reason why it is converted to factor) with the package dplyr)
+  symbol_mcap <- symbol_mcap %>% mutate_if(is.factor, as.character)
+}
+# list all of the stock market symbols, so they can be called from Yahoo!Finance. 
+# Please check first that the symbols are correct!
+event_symbol <- levels(factor(symbol_mcap$name))
+# list all of the index symbols, so they can be called from Yahoo!Finance. 
+# Please check first that the symbols are correct!
+index_symbol <- levels(factor(symbol_mcap$index))
+# Add curency symbols to calculate MCAP of foreign companies:
+currency_symbol <- levels(factor(symbol_mcap$currency))
+# Combine all the symbols to call the symbols from Yahoo! Finance at once:
+yahoo_symbol <- c(event_symbol,index_symbol,currency_symbol)
+# prints the symbols
+print(yahoo_symbol)
+# Define the Event Window Length in days:
+event_window <- 7
+# Define event lead (days before) to start the event:
+event_lead <- 3
+# Define display event period ("0" is day of event):
+num_days <- c(1:(event_window*2))
+mid_days <- num_days+event_lead-event_window
+# new_days <- sprintf("%+d", mid_days) 
+new_days <- mid_days
+cat("the event period covers from day", min(new_days), "to day", max(new_days), 
+    ", i.e. x-axis of <", new_days, ">")
+# Define estimation period:
+estimation_period = 60
+#find minimum date needed for event study and take one year from it for security:
+min_date <- min(event_dates$when) - event_window - 360
+#find maximum date needed for event study and add one year to it for security:
+max_date <- max(event_dates$when) + event_window + 360
+
+```
+
+\newpage
+\tableofcontents
+\listoffigures
+\listoftables
+\newpage
+
+# Summary of changes
+
+- Comparison of the used model, R package "Eventstudies", against the R wrapper package "EventStudy", which performs an analysis online at EventStudyTools.com
+- Change of the results to the results from EventStudyTools.com due to anomalies
+
+## To do list
+
+- List moving average values and regress against results
+- Change regression to exponential plots
+- Add quantile regression with the R quantreg package
+- Determine why one of the results from EventStudyTools.com contains an extreme outlier
+- Implement the non-parametric rank test from Corrado
+- Extend the results to the R package Estudy2
+
+# Introduction
+
+There are increases of 1%-2% in company share values after gaining a large order for manufacturing energy generation infrastructure [^Schiereck_2012]. This is also reflected in a study of EPC contract awards, which shows that an average of 5% are added to contract award share prices for EPC energy projects [^Choi_2005].
+
+[^Schiereck_2012]: @Schiereck_2012
+[^Choi_2015]: @Choi_2015
+
+The market model adjustment is used, since this appears to be the most commonly used, simple, and provides comparable results to more complicated methods. Beta is calculated with the ordinary least squares (OLS) method, which provides comparably low prediction error rates to more complex methods [^Jain_1986]. Only 114 samples are used, which give a low chance of rejecting the null hypothesis [^MacKinlay_1997].
+
+[^Jain_1986]: @Jain_1986 p.96
+[^MacKinlay_1997]: @MacKinlay_1997
+
+Daily stock returns are used since monthly would not show any effect and intraday stock returns would be too volatile. Furthermore only daily stock returns are both archived over several years and freely available.
+
+Ad hoc announcements can only be sourced directly from the company websites, and not from journals or newspapers, since the announcements there are often delayed by several days and contain different information to that released on the company website.
+
+# Background
+
+This thesis examines events using sliced inputs of individual events examined with the market model in an R[^rlang] package eventstudies [^eventstudies], with the data imported from Yahoo! Finance[^yahoo_data] with the R package quantmod [^quantmod]. This refers to the event study methodology review by @Corrado_2010, which describes an event study as an econometric observation of the affect on share price of a single stock-listed company, in this case represented by a single market symbol, and caused by a single event. In this case, with the market model, the abnormal returns of the company stock are looked at, once any market trends have been taken into account [^Corrado_2010]. Therefore, a similar effect is expected as with the figure below, showing the correlation between information changes and future price changes [^Daniel_1998_p1864]:
+
+[^rlang]: @rlang
+[^eventstudies]: @eventstudies
+[^yahoo_data]: @yahoo_data
+[^quantmod]: @quantmod
+[^Corrado_2010]: @Corrado_2010
+[^Daniel_1998_p1864]:@Daniel_1998, p.1864
+
+![Correlation between information changes and future price changes](information_price.png){ height=200px }
+
+It is expected that over time the stock price will be the same as it would have been without the announcement. This is because without any price signals, but with turnover and profit, the company would in the long term be equally attractive to investors. However, since only the early post-event window is looked at, this would most likely not affect the results. A return autocorelation is expected after the event, resulting in a positive price increase for a favourable signal from the company, and a negative price increase for an unfavorable signal from the company. This would have a momentum phase, where the price increase builds up over time, before reducing to the increased rational expected value after the event [^Daniel_1998_p1847]:
+
+[^Daniel_1998_p1847]: @Daniel_1998, p.1847
+
+![expected return autocorrelation](overreaction.png){ height=200px }
+
+Where the "self attribution bias" represents the level of over confidence of the investor [^Daniel_1998_p1861]. Since the company requires contract awards to meet the turnover, it is expected that contract awards are a favorable private signal. The increased rational expected value is assumed to carry on for a month after the event in post-event drift [^Womack_1996], and thereby stay conisistently positive in the cumulative returns.
+
+[^Daniel_1998_p1861]: @Daniel_1998, p.1861
+[^Womack_1996]: @Womack_1996, p.156
+
+## Add insider trading, where events happen days before
+
+The market model was chosen, as this is both the most widely used methodology for event study analysis, and also the easiest to understand from a logical viewpoint. This requires for each company event a listed symbol for the company and a listed market index for a representative market. Since any results must be similar for similar conditions, similar events are looked at for different dates over several years, across different stock listed companies in different continents, and in their respective markets where they are traded.
+
+Over The Counter (OTC) of foreign traded stocks were not used to substitute foreign stocks traded on foreign market indicies due to the high attributed search costs, resulting in low transparency and high asymmetry. Instead OTC markets are opaque and disperse [^Issa_2018]. This would violate the Efficient Market Hypothesis (EMH) needed to predict expected returns for event study analysis, since any new information on the market would lead to ann according adjustment of the stock price [^Werner_2010]. Therefore, they would most likely increase interference in the model, rather than decrease it. For this reason, only locally traded stocks were examined against their local market index, but with a multitude of international indicies.
+
+[^Werner_2010]: @Werner_2010, p.49
+
+The R package eventstudies only handles a single market index. Another possibility would be to valuate all of the indicies against a common index which would be representative of all the individual indicies, in this case the Dow Jones Industrial Average. However, as can be seen below, the Dow Jones Industrial Average varies significantly to the local indicies of other companies studied[^yahoo]:
+
+[^yahoo]: @yahoo Yahoo! Finance
+
+![Index differences](indexdelta.png){ width=500px }
+
+The exception to the rule is General Electric Company(GE), which is indexed against the Dow Jones Industrial Average index (^DJI), not the NYSE Composite (^NYA). This will need to be changed to the NYSE composite, since GE is no longer listed on the ^DJI.
+
+[^Issa_2018]: @Issa_2018, p.2605
+
+\pagebreak
+# Method
+
+The event estimation is split into several different periods[^source]:
+
+![Event Study Time-Series Components](timeseriescomponents.png){ width=500px }
+
+[^source]: @Werner_2010, p.55, from @Campbell_1997, p. 157
+
+
+The market model is based on the difference in the expected return over the pre-event estimation window within the event window:
+
+![Market model exmaple](mmexample2.png)
+
+The market model uses the past to predict the future, in that the estimation period ends before the estimation period starts.The Cumulative Abnormal Returns (CARs) are then calculated for the period to give the result:
+
++++ An example is needed which only shows the one security ALV.DE against DAX index +++
+
+In this case, abnormal results are looked for in the form of a positive skewed result, which shows that there are more positive then negative results in the normal distribution.
+
+![Positive skew and kurtosis in a normal distribution](distribution.png){ height=150px }
+
+"FIGURE 1. Mean (m), standard deviation (s), skewness, and kurtosis of a probability distribution. “A” illustrates a normal distribution, with corresponding mean (solid vertical line) and standard deviation (horizontal arrowed lines). “B” illustrates a positively skewed
+distribution and corresponding shift in mean (dotted vertical line). “C” illustrates a peaked distribution with a corresponding positive kurtosis (note that distributions A and C have the same mean)."[^Tanner_2005]
+
+[^Tanner_2005]: @Tanner_2005, p.214
+
+The normality of distributions are used as a measure of the statisitical validity of the results, since the results must either show normally distributed data, or calcualting the number of abnormal returns over the control period. [^Corrado_2010_p211] Since no control period is examined, the results should be as close to "A" as possible. 
+
+[^Corrado_2010]: @Corrado_2010, p.211
+
+## Model calibration
+
+To calibrate the model, first a simple example of insurance companies adversely affectly by the 9/11 terrorist attacks where taken:
+
+
+
+![Calibration symbols](calibration_symbols.png){ height=150px }
+
+## Mean periodicity regression
+
+Here the rolling mean time between the previous ten events and the current event were calculated. Hence, the rolling mean between ten dates is taken. Two independant events are on the same day, when two separate contract award announcements related to the same security occur on the same day, for example Siemens on 2019-07-09 with separate contracts in Mexico and Iraq and Marubeni on 2016-04-19 with two separate awards in Bangladesh and the USA. Two depentdant events are on the same day, when the same contract is awarded to two different companies, with the EPC build contract split between Marubeni and General Electric. The contract awards were then announced on both websites on 2019-02-21 and on 2017-07-19. It would not make sense to remove dependant ananouncements, since the event study is based on announcements on the security website and not the signing of EPC contracts themselves. The event study must be based on the announcement to meet the Efficient Market Hypothesis (EMH), which stipulates that the public share price will reflect publically available information at that point in time. To satisfy the EMH, only the mean of past event and not of past and furutre events is taken. Additionally, the cyclical nature of power generation newbuilds and the use of estimation periods and event windows which also contain many other events would not make it reasonable to subset for multiple events for the same security on the same day, but not to subset for multiple events in the same event window, estimation period, month or year.
+
+\pagebreak
+# results
+
+When looking at an event window of (from -3 to +4, i.e. 8 days) the results do not show any tendency for positive or negative results:
+
+![Cumulated results](results2sigma.png){ height=150px }
+
+An interval of two sigma is shown, since the confidence interval of 95% is too narrow to see. The distribution by day shows that the results are not skewed:
+
+![Distribution by day](distribution_results.png){ height=150px }
+
+However, as shown below, the 95% confidence interval (in red) is negligible when compared to the 2 sigma interval (in black):
+
+![95% confidence interval](95_confidence.png){ height=150px }
+
+To summarize, the results do not show any abnormal returns. This is the same for all possible subsets of data. This is also the same when comparing any abnormal returns against the number of Watts stated in the ad hoc announcement against the historical market capitalization of the company:
+
+![regression of abnormal returns against Watts per market capitalization dollar](abnormal_returns_watt_mcap.png){ height=200px }
+
+### Highly cyclical nature of power generation newbuilds
+
+```{r seasonality, fig.height=3, echo=FALSE, message=FALSE, warning=FALSE}
+library(ggplot2)
+library(scales)
+library(dplyr)
+#package for reading and writing excel files: https://cran.r-project.org/web/packages/xlsx/xlsx.pdf
+library(xlsx)
+wb<-loadWorkbook('C:/Users/Christian/OneDrive/Rstudio/try1/event_dates.xlsx')
+#loads sheets from workbook wb
+sheets<-getSheets(wb)
+#loads only first sheet from wb
+sheet<-sheets[[1]]
+#loads data from sheet 1 into event_dates
+event_dates<-readColumns(sheet = sheet, 1, 2, 1, colClasses =c("character","Date"))
+#converts first column from class Factor to class Character (no reason why it is converted to factor) with the package dplyr)
+event_dates %>% mutate_if(is.factor, as.character) %>% arrange(when, name) -> event_dates
+#makes a new data frame called EventCount
+EventCount<-event_dates
+#Adds a column to the data frame which categorises the events by month
+EventCount$month<-as.Date(cut(EventCount$when, breaks = "month"))
+#Lists events as they occur per month
+seasonality<-ggplot(data = EventCount, aes(month,1)) + stat_summary(fun.y = sum, geom = "bar") + scale_x_date (labels = date_format("%Y"),breaks = "1 year") + labs(title="Seasonality of ad hoc announcements",x="date",y="occurances per month")
+plot(seasonality)
+```
+This shows there were very few newbuilds (contract awards) in 2018, but many in 2019.
+
+```{r periodicity, fig.height=3, echo=FALSE, message=FALSE, warning=FALSE}
+event_duplicates <- cbind(event_dates, duplicated(event_dates))
+
+df <- event_dates$when
+r1 <-  lag(df, 0) - lag(df, 1)
+r2 <-  lag(df, 0) - lag(df, 2)
+r3 <-  lag(df, 0) - lag(df, 3)
+r4 <-  lag(df, 0) - lag(df, 4)
+r5 <-  lag(df, 0) - lag(df, 5)
+r6 <-  lag(df, 0) - lag(df, 6)
+r7 <-  lag(df, 0) - lag(df, 7)
+r8 <-  lag(df, 0) - lag(df, 8)
+r9 <-  lag(df, 0) - lag(df, 9)
+r10 <-  lag(df, 0) - lag(df, 10)
+# from data frames with all lags
+test_res <- cbind(r1, r2, r3, r4, r5, r6, r7, r8, r9, r10)
+# calculate mean lag
+mean_res <- apply(test_res, 1, mean)
+# o1 <- tail(mean_res, -2)
+date <- event_dates$when
+mean_period <- cbind.data.frame(date, mean_res)
+
+print(ggplot(mean_period, aes(x = date, y = mean_res)) 
+      + geom_line()
+      # + stat_summary(fun.data = "mean_sdl", colour = "black", size = 1)
+      + theme(legend.position="none")
+      + geom_vline(xintercept = 0)
+      + geom_hline(yintercept = 0)
+      + labs(x = "date", y = "rolling mean periodicity"))
+```
+
+Investor sentiment was reflected with the mean periodocity, which shows at any date the mean time passed from the last ten announcements. This is then correlated against 
+
+
+
+
+\pagebreak
+# Further work
+
+It is difficult to know what exactly the estimation models do, since the implementations are very broad but are not explained in detail. The packages eventstudies and estudy2 have fundamental differences, which would make it worth while to implement the results in both packages.
+
+A non-parametric rank test according to @Corrado_1992 [^Corrado_1992_p467] perform better for Asian markets, whilst presenting no disadvantages within the U.S. markets [^Corrado_2008_p518] and is implemented in the package estudy2 [^estudy2_p21].
+
+No control periods are used in the model. Firstly and foremost, the results do not indicate any correlation. Therefore the difference between the control periods and the event window would have no relevance. Also, control periods would render any small expected price changes insignificant, since the chance of a higher or lower abnormal return within the control period of one year is very high when compared to the short event windows of approximately 6 days, given that control periods of 1 trading year are suggested to estimate the statistical significance [^Corrado_2010_p210]: @Corrado_2010. However, could be implemented, since it is not too difficult. This would involve inverting the past data to be future data, performing the event study, and then inverting the results. the combination across multiple events and companies would require use of some form of the Patell T-test, which summarizes the individual student-t variables of individual results [^Patell_1976_p258].
+
+[^Corrado_1992:p467]: @Corrado_1992, p.467
+[^Corrado_2008_p518]: @Corrado_2008, p.518
+[^estudy2_p21]: @estudy2, p.21
+[^Corrado_2010_p210]: @Corrado_2010, p.210
+[^Patell_1976_p258]: @Patell_1976, p.258
+
+
+# Additional notes
+
+This thesis is written in Pandoc's markdown for R, and converted to PDF via knitr [^knitr], BibLaTeX and LaTex, as described in the R markdown manual [^rmarkdown]. The full code is also written into the document using "chunks". For this reason, the Keep It Simple, Stupid (KISS) technique is used to improve compatibility and the R code is heavily commented.
+
+[^rmarkdown]: @rmarkdown
+[^knitr]: @knitr
+
+\pagebreak
+# References
